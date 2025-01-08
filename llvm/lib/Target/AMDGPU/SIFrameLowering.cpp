@@ -1224,6 +1224,15 @@ void SIFrameLowering::emitPrologue(MachineFunction &MF,
   assert((HasBP || !BPSaved) && "Saved BP but didn't need it");
 }
 
+  
+      // if no alignment
+  // if(MFI.hasVarSizedObjects()){
+  //   auto Add = BuildMI(MBB, MBBI, DL, TII->get(AMDGPU::S_ADD_I32), StackPtrReg)
+  //       .addReg(FramePtrReg)
+  //       .addImm(static_cast<int64_t>(RoundedSize * getScratchScaleFactor(ST)));
+  //       // .setMIFlag(MachineInstr::FrameDestroy);
+  //   }
+
 void SIFrameLowering::emitEpilogue(MachineFunction &MF,
                                    MachineBasicBlock &MBB) const {
   const SIMachineFunctionInfo *FuncInfo = MF.getInfo<SIMachineFunctionInfo>();
@@ -1278,6 +1287,13 @@ void SIFrameLowering::emitEpilogue(MachineFunction &MF,
 
     emitCSRSpillRestores(MF, MBB, MBBI, DL, LiveUnits, FramePtrReg,
                          FramePtrRegScratchCopy);
+  }
+  if (MFI.hasVarSizedObjects() && RoundedSize != 0) {
+    auto Add = BuildMI(MBB, MBBI, DL, TII->get(AMDGPU::S_ADD_I32), StackPtrReg)
+        .addReg(FramePtrReg)
+        .addImm(RoundedSize * getScratchScaleFactor(ST))
+        .setMIFlag(MachineInstr::FrameDestroy);
+    Add->getOperand(3).setIsDead(); // Mark SCC as dead.
   }
 
   if (RoundedSize != 0 && hasFP(MF)) {
